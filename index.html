@@ -1,0 +1,1197 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>니케 월간 재화 &amp; 레벨업 계산기</title>
+<style>
+  :root {
+    color-scheme: light;
+    --surface-1:      #fcfcfb;
+    --page-plane:     #f9f9f7;
+    --text-primary:   #0b0b0b;
+    --text-secondary: #52514e;
+    --text-muted:     #898781;
+    --gridline:       #e1e0d9;
+    --baseline:       #c3c2b7;
+    --border:         rgba(11,11,11,0.10);
+    --series-1:       #2a78d6; /* 크레딧 */
+    --series-2:       #eb6834; /* 배틀데이터 */
+    --series-3:       #1baf7a; /* 코어더스트 */
+    --good:           #0ca30c;
+    --card-bg:        #ffffff;
+    --input-bg:       #ffffff;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:where(:not([data-theme="light"])) {
+      color-scheme: dark;
+      --surface-1:      #1a1a19;
+      --page-plane:     #0d0d0d;
+      --text-primary:   #ffffff;
+      --text-secondary: #c3c2b7;
+      --text-muted:     #898781;
+      --gridline:       #2c2c2a;
+      --baseline:       #383835;
+      --border:         rgba(255,255,255,0.10);
+      --series-1:       #3987e5;
+      --series-2:       #d95926;
+      --series-3:       #199e70;
+      --good:           #0ca30c;
+      --card-bg:        #232322;
+      --input-bg:       #1f1f1e;
+    }
+  }
+  [data-theme="dark"] {
+    color-scheme: dark;
+    --surface-1:      #1a1a19;
+    --page-plane:     #0d0d0d;
+    --text-primary:   #ffffff;
+    --text-secondary: #c3c2b7;
+    --text-muted:     #898781;
+    --gridline:       #2c2c2a;
+    --baseline:       #383835;
+    --border:         rgba(255,255,255,0.10);
+    --series-1:       #3987e5;
+    --series-2:       #d95926;
+    --series-3:       #199e70;
+    --good:           #0ca30c;
+    --card-bg:        #232322;
+    --input-bg:       #1f1f1e;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    background: var(--page-plane);
+    color: var(--text-primary);
+    padding: 24px 16px 64px;
+  }
+  .wrap { max-width: 980px; margin: 0 auto; }
+  header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 16px;
+    margin-bottom: 20px;
+  }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  .subtitle { color: var(--text-secondary); font-size: 14px; margin: 0; }
+  .theme-toggle {
+    border: 1px solid var(--border);
+    background: var(--card-bg);
+    color: var(--text-primary);
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 13px;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .card {
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 18px 20px;
+    margin-bottom: 16px;
+  }
+  .card h2 {
+    font-size: 15px;
+    margin: 0 0 14px;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .card h2 .dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    gap: 12px 18px;
+  }
+  label {
+    display: block;
+    font-size: 12.5px;
+    color: var(--text-secondary);
+    margin-bottom: 4px;
+  }
+  input[type=number] {
+    width: 100%;
+    padding: 7px 9px;
+    border-radius: 7px;
+    border: 1px solid var(--border);
+    background: var(--input-bg);
+    color: var(--text-primary);
+    font-size: 13.5px;
+    font-variant-numeric: tabular-nums;
+  }
+  input[type=number]:focus { outline: 2px solid var(--series-1); outline-offset: 1px; }
+  input[type=number][readonly] {
+    background: var(--gridline);
+    color: var(--text-secondary);
+    cursor: not-allowed;
+  }
+  input[type=number][readonly]:focus { outline: none; }
+  input.k-display {
+    width: 100%;
+    padding: 7px 9px;
+    border-radius: 7px;
+    border: 1px solid var(--border);
+    background: var(--gridline);
+    color: var(--text-secondary);
+    font-size: 13.5px;
+    font-variant-numeric: tabular-nums;
+    cursor: not-allowed;
+  }
+  input.k-display:focus { outline: none; }
+  td[title], .stat-tile .value[title] { cursor: help; }
+  select {
+    width: 100%;
+    padding: 7px 9px;
+    border-radius: 7px;
+    border: 1px solid var(--border);
+    background: var(--input-bg);
+    color: var(--text-primary);
+    font-size: 13.5px;
+  }
+  select:focus { outline: 2px solid var(--series-1); outline-offset: 1px; }
+  .field-note { font-size: 11px; color: var(--text-muted); margin-top: 3px; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td {
+    text-align: right;
+    padding: 8px 6px;
+    border-bottom: 1px solid var(--gridline);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+  th:first-child, td:first-child { text-align: left; font-variant-numeric: normal; }
+  thead th { color: var(--text-muted); font-weight: 600; font-size: 11.5px; text-transform: uppercase; letter-spacing: .02em; }
+  tfoot td { font-weight: 700; border-bottom: none; border-top: 1px solid var(--baseline); }
+
+  table.cash-table th:first-child, table.cash-table td:first-child { white-space: normal; }
+  table.cash-table td.cash-name { text-align: left; font-variant-numeric: normal; }
+  table.cash-table td.cash-desc { text-align: left; font-variant-numeric: normal; color: var(--text-secondary); white-space: normal; }
+  table.cash-table td.cash-buy { text-align: center; }
+  table.cash-table tr.cash-subhead td { background: var(--gridline); font-weight: 700; font-size: 12px; text-align: left; padding: 6px 6px; }
+  table.cash-table input[type=checkbox] { width: 17px; height: 17px; cursor: pointer; vertical-align: middle; }
+  table.cash-table input[type=number] { width: 68px; text-align: right; padding: 5px 6px; display: inline-block; }
+  table.cash-table select { width: auto; min-width: 110px; padding: 5px 6px; display: inline-block; font-size: 12.5px; }
+  .cash-buy-combo { display: flex; align-items: center; justify-content: center; gap: 6px; flex-wrap: wrap; }
+  .cash-alloc { display: inline-flex; align-items: center; gap: 4px; flex-wrap: wrap; margin-top: 4px; font-size: 12.5px; }
+  .cash-alloc input[type=number] { width: 52px !important; padding: 4px 5px !important; }
+  .cash-total-banner {
+    background: var(--card-bg);
+    border: 1px solid var(--series-2);
+    border-radius: 10px;
+    padding: 12px 16px;
+    font-size: 14px;
+    margin-bottom: 14px;
+  }
+  .cash-total-banner b { color: var(--series-2); font-size: 17px; }
+
+  .stat-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 12px;
+    margin-bottom: 6px;
+  }
+  .stat-tile {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 16px;
+  }
+  .stat-tile .label { font-size: 12px; color: var(--text-secondary); margin-bottom: 6px; }
+  .stat-tile .value { font-size: 24px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .stat-tile .value small { font-size: 13px; font-weight: 500; color: var(--text-secondary); }
+  .stat-tile.bottleneck { border-color: var(--series-2); }
+  .stat-tile.bottleneck .value { color: var(--series-2); }
+
+  .bars { margin-top: 14px; }
+  .bar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; position: relative; }
+  .bar-label { width: 108px; flex: 0 0 108px; font-size: 12.5px; color: var(--text-secondary); display:flex; align-items:center; gap:6px;}
+  .bar-label .dot { width: 9px; height: 9px; border-radius: 50%; flex: 0 0 9px; }
+  .bar-track { flex: 1; min-width: 0; background: var(--gridline); border-radius: 4px; height: 26px; position: relative; overflow: hidden; }
+  .bar-fill {
+    height: 100%;
+    border-radius: 4px;
+    transition: width .25s ease;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    box-sizing: border-box;
+    padding-right: 8px;
+  }
+  .bar-value {
+    font-size: 13px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: #fff;
+    white-space: nowrap;
+  }
+  .bar-fill:hover { filter: brightness(1.08); cursor: pointer; }
+  .tooltip {
+    position: fixed;
+    pointer-events: none;
+    background: var(--text-primary);
+    color: var(--surface-1);
+    font-size: 12px;
+    padding: 6px 9px;
+    border-radius: 6px;
+    z-index: 20;
+    display: none;
+    white-space: nowrap;
+  }
+  .helper { font-size: 12px; color: var(--text-muted); margin-top: 10px; line-height: 1.5; }
+  .fixed-value {
+    padding: 7px 9px;
+    border-radius: 7px;
+    border: 1px dashed var(--border);
+    background: var(--gridline);
+    color: var(--text-secondary);
+    font-size: 13.5px;
+    font-variant-numeric: tabular-nums;
+  }
+  .fixed-note { font-size: 11px; color: var(--text-muted); margin-top: 3px; }
+  #farmScheduleTable th { text-align: center; }
+  #farmScheduleTable td { text-align: center; }
+  #farmScheduleTable td:first-child, #farmScheduleTable td:nth-child(2) { text-align: left; }
+  #farmScheduleTable select.month-week-type {
+    padding: 6px 8px;
+    border-radius: 7px;
+    border: 1px solid var(--border);
+    background: var(--input-bg);
+    color: var(--text-primary);
+    font-size: 12.5px;
+    max-width: 220px;
+  }
+  .week-pattern { font-size: 11.5px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+  .week-total, #farmScheduleTotal { font-weight: 700; }
+  tr.row-disabled { opacity: 0.4; }
+  .event-type-toggle { display: flex; gap: 8px; flex-wrap: wrap; }
+  .radio-pill {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    border: 1px solid var(--border);
+    background: var(--card-bg);
+    border-radius: 999px;
+    padding: 7px 14px;
+    font-size: 13px;
+    cursor: pointer;
+    color: var(--text-secondary);
+  }
+  .radio-pill input { accent-color: var(--series-1); }
+  .radio-pill:has(input:checked) {
+    border-color: var(--series-1);
+    color: var(--text-primary);
+    font-weight: 600;
+  }
+  .section-desc { font-size: 12px; color: var(--text-muted); margin: -8px 0 14px; }
+  @media (max-width: 560px) {
+    header { flex-direction: column; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>니케 월간 재화 &amp; 레벨업 계산기</h1>
+      <p class="subtitle">전초기지 · 단기섬멸 · 고철상점 · 파견 · 이벤트 수급량을 입력하면 월간 재화 합계와 레벨업 가능 횟수를 계산합니다.</p>
+    </div>
+    <button class="theme-toggle" id="themeToggle" type="button">다크 모드</button>
+  </header>
+
+  <div class="card">
+    <h2><span class="dot" style="background:var(--series-1)"></span>전초기지 시간당 최대 생산량</h2>
+    <p class="section-desc">전초기지 레벨을 입력하면 레벨별 수급 표에서 자동으로 값을 채웁니다. 아래 칸은 자동 계산 전용이며 직접 수정할 수 없습니다.</p>
+    <div class="grid">
+      <div><label>전초기지 레벨</label><input type="number" id="outpostLevel" value="700" min="1" max="712"></div>
+    </div>
+    <p class="field-note" id="outpostLevelNote"></p>
+    <div class="grid" style="margin-top:10px;">
+      <div><label>크레딧 / 시간</label><input type="text" id="outpostCredit" class="k-display" data-raw="72486.72" value="72.49k" readonly></div>
+      <div><label>배틀 데이터 / 시간</label><input type="text" id="outpostBattle" class="k-display" data-raw="743628.15" value="743.63k" readonly></div>
+      <div><label>코어 더스트 / 시간</label><input type="number" id="outpostCore" value="117.45" step="0.01" min="0" readonly></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2><span class="dot" style="background:var(--series-2)"></span>1레벨업 필요 재화</h2>
+    <p class="section-desc">싱크로 레벨을 입력하면 레벨 구간별 필요 재화 표에서 자동으로 값을 채웁니다. 801레벨 이상은 전부 801~1000 구간과 동일한 값을 사용합니다. 계산 기간은 30일 고정입니다.</p>
+    <div class="grid">
+      <div><label>싱크로 레벨</label><input type="number" id="levelupLevel" value="802" min="1"></div>
+    </div>
+    <p class="field-note" id="levelupLevelNote"></p>
+    <div class="grid" style="margin-top:10px;">
+      <div><label>필요 크레딧</label><input type="text" id="needCredit" class="k-display" data-raw="11491166" value="11.49M" readonly></div>
+      <div><label>필요 배틀 데이터</label><input type="text" id="needBattle" class="k-display" data-raw="105826915" value="105.83M" readonly></div>
+      <div><label>필요 코어 더스트</label><input type="number" id="needCore" value="20000" min="0" readonly></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2><span class="dot" style="background:var(--series-1)"></span>단기섬멸 (기지방어 즉시 수령)</h2>
+    <div class="grid">
+      <div><label>하루 가능 횟수</label><input type="number" id="tankiCount" value="5" min="0" max="10"></div>
+      <div>
+        <label>1회당 보상 (분)</label>
+        <div class="fixed-value">120분 (2시간)</div>
+        <div class="fixed-note">게임 고정값 — 수정 불가</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2><span class="dot" style="background:var(--series-1)"></span>고철상점 (주간 갱신)</h2>
+    <p class="section-desc">전초기지 시간당 생산량 기준, 주마다 살 수 있는 &ldquo;○시간치&rdquo; 케이스 개수를 입력하세요. 매주 초기화된다고 가정하고 계산 기간(주 수)만큼 곱해서 합산합니다.</p>
+    <div class="grid">
+      <div><label>크레딧 케이스 1시간 (주당 개수, 0~12)</label><input type="number" id="shopCreditCase1" value="12" min="0" max="12"></div>
+      <div><label>크레딧 케이스 2시간 (주당 개수, 0~10)</label><input type="number" id="shopCreditCase2" value="10" min="0" max="10"></div>
+      <div><label>배틀 데이터 케이스 1시간 (주당 개수, 0~6)</label><input type="number" id="shopBattleCase1" value="6" min="0" max="6"></div>
+      <div><label>배틀 데이터 케이스 2시간 (주당 개수, 0~5)</label><input type="number" id="shopBattleCase2" value="5" min="0" max="5"></div>
+      <div><label>코어 더스트 케이스 1시간 (주당 개수, 0~6)</label><input type="number" id="shopCoreCase1" value="6" min="0" max="6"></div>
+      <div><label>코어 더스트 케이스 2시간 (주당 개수, 0~5)</label><input type="number" id="shopCoreCase2" value="5" min="0" max="5"></div>
+      <div><label>크레딧 100k 케이스 (주당 개수, 0~5)</label><input type="number" id="shopCreditFlat100k" value="5" min="0" max="5"></div>
+    </div>
+    <p class="section-desc" style="margin-top:12px;">&ldquo;크레딧 100k&rdquo; 케이스는 전초기지 생산량과 무관하게 1개당 크레딧 100,000을 고정으로 지급합니다 (시간치 환산 아님).</p>
+    <p class="field-note" id="shopCaseNote"></p>
+  </div>
+
+  <div class="card">
+    <h2><span class="dot" style="background:var(--series-1)"></span>파견 (임무)</h2>
+    <p class="section-desc">크레딧 · 코어 더스트만 지급 (배틀 데이터 미지급). 1회 완료 시 받는 재화량을 전초기지 시간당 생산량 기준 시간치로 입력하세요.</p>
+    <div class="grid">
+      <div><label>하루 완료 횟수</label><div class="fixed-value">1회</div></div>
+      <div><label>1회당 코어 더스트 (시간치)</label><input type="number" id="dispatchCore" value="0" min="0"></div>
+      <div><label>1회당 크레딧 (시간치)</label><input type="number" id="dispatchCredit" value="0" min="0"></div>
+    </div>
+    <div class="fixed-note">하루 완료 횟수(1회)는 게임 고정값 — 수정 불가. 전초기지 시간당 생산량 × 입력한 시간치 × 완료 횟수만큼 매일 더해집니다.</div>
+  </div>
+
+  <div class="card">
+    <h2><span class="dot" style="background:var(--series-1)"></span>이벤트 (상점 + 하드 11스테이지 파밍)</h2>
+    <p class="section-desc">이벤트 상점 재화는 고정치입니다.</p>
+    <div class="grid">
+      <div><label>이벤트 상점 배틀데이터 (시간치)</label><div class="fixed-value">30시간</div></div>
+      <div><label>이벤트 상점 코어더스트 (시간치)</label><div class="fixed-value">30시간</div></div>
+    </div>
+    <div class="fixed-note">이벤트 상점 재화는 게임 고정값 — 수정 불가, 배수 적용 없음</div>
+
+    <h3 style="font-size:13.5px;margin:20px 0 4px;">11스테이지 파밍 코어더스트 (계산 대상 월의 주차별 유형)</h3>
+    <p class="section-desc">이벤트 진행 주차가 아니라 &ldquo;계산하는 달의 1~4주차&rdquo; 기준입니다. 이벤트가 달 중간에 걸쳐 있어도, 그 주에 실제로 어떤 상태였는지(노말 진행 중 / 하드 진행 중 / 해당 없음)만 골라주세요.</p>
+    <table id="farmScheduleTable">
+      <thead>
+        <tr>
+          <th style="text-align:left;">이번 달 주차</th>
+          <th style="text-align:left;">유형</th>
+          <th>시간치 패턴 (1~7일)</th>
+          <th>주간 합</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr data-week="1">
+          <td style="text-align:left;">1주차</td>
+          <td>
+            <select class="month-week-type" data-week="1">
+              <option value="none">해당 없음</option>
+              <option value="normal" selected>노말 진행 주간 (0,0,6,10,10,10,10)</option>
+              <option value="hard">하드 진행 주간 (20,20,20,20,20,20,20)</option>
+            </select>
+          </td>
+          <td class="week-pattern" id="weekPattern1">-</td>
+          <td class="week-total" id="weekTotal1">-</td>
+        </tr>
+        <tr data-week="2">
+          <td style="text-align:left;">2주차</td>
+          <td>
+            <select class="month-week-type" data-week="2">
+              <option value="none">해당 없음</option>
+              <option value="normal" selected>노말 진행 주간 (0,0,6,10,10,10,10)</option>
+              <option value="hard">하드 진행 주간 (20,20,20,20,20,20,20)</option>
+            </select>
+          </td>
+          <td class="week-pattern" id="weekPattern2">-</td>
+          <td class="week-total" id="weekTotal2">-</td>
+        </tr>
+        <tr data-week="3">
+          <td style="text-align:left;">3주차</td>
+          <td>
+            <select class="month-week-type" data-week="3">
+              <option value="none">해당 없음</option>
+              <option value="normal">노말 진행 주간 (0,0,6,10,10,10,10)</option>
+              <option value="hard" selected>하드 진행 주간 (20,20,20,20,20,20,20)</option>
+            </select>
+          </td>
+          <td class="week-pattern" id="weekPattern3">-</td>
+          <td class="week-total" id="weekTotal3">-</td>
+        </tr>
+        <tr data-week="4">
+          <td style="text-align:left;">4주차</td>
+          <td>
+            <select class="month-week-type" data-week="4">
+              <option value="none" selected>해당 없음</option>
+              <option value="normal">노말 진행 주간 (0,0,6,10,10,10,10)</option>
+              <option value="hard">하드 진행 주간 (20,20,20,20,20,20,20)</option>
+            </select>
+          </td>
+          <td class="week-pattern" id="weekPattern4">-</td>
+          <td class="week-total" id="weekTotal4">-</td>
+        </tr>
+      </tbody>
+      <tfoot>
+        <tr><td colspan="3">월간 파밍 합 (시간치)</td><td id="farmScheduleTotal">-</td></tr>
+      </tfoot>
+    </table>
+    <div class="fixed-note">노말/하드 패턴은 실제 확인해주신 수치입니다. 하드 진행 주간은 티켓을 사용해 첫날부터 20시간치 파밍이 가능하므로 20×7=140시간으로 계산합니다.</div>
+
+    <h3 style="font-size:13.5px;margin:20px 0 4px;">하드 스테이지 오픈 티켓 추가 획득</h3>
+    <p class="section-desc">하드 스테이지가 열리면 받는 티켓으로 추가 빠른전투를 돌릴 수 있습니다. 티켓 1장 = 4시간치이며, 계산 기간 동안 각 재화로 교환한 티켓 개수를 각각 입력하세요.</p>
+    <div class="grid">
+      <div><label>티켓 1장당 시간치</label><div class="fixed-value">4시간</div></div>
+      <div><label>크레딧 교환 티켓 개수</label><input type="number" id="hardTicketCreditCount" value="0" min="0"></div>
+      <div><label>배틀 데이터 교환 티켓 개수</label><input type="number" id="hardTicketBattleCount" value="0" min="0"></div>
+      <div><label>코어 더스트 교환 티켓 개수</label><input type="number" id="hardTicketCoreCount" value="63" min="0"></div>
+    </div>
+    <div class="fixed-note">티켓 1장당 4시간치는 게임 고정값 — 수정 불가. 배수 없이 (개수 × 4시간 × 해당 재화의 시간당 생산량)만큼 각각 더해집니다.</div>
+  </div>
+
+  <div class="card">
+    <h2><span class="dot" style="background:var(--series-3)"></span>인벤토리</h2>
+    <p class="section-desc">이미 갖고 있는 교환형 아이템을 재화로 환산합니다. 실제로 보유한 개수를 원하는 재화로 배분해 입력하세요 (1회성으로 합산됩니다).</p>
+    <table class="cash-table">
+      <thead>
+        <tr><th style="text-align:left;">아이템</th><th>지급 재화</th><th style="text-align:center;">배분 입력</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="cash-name">중앙정부 보급 물자 I</td>
+          <td class="cash-desc">1개 = 코더 1시간 또는 배데 1시간 또는 크레딧 3시간</td>
+          <td class="cash-buy">
+            <span class="cash-alloc">
+              코더 <input type="number" id="invSupply1Core" value="0" min="0">개 ·
+              배데 <input type="number" id="invSupply1Battle" value="0" min="0">개 ·
+              크레딧 <input type="number" id="invSupply1Credit" value="0" min="0">개
+            </span>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <h2><span class="dot" style="background:var(--series-3)"></span>30일 성장 보급상자</h2>
+    <p class="section-desc">1회 교환당 크레딧 30시간치 / 배틀 데이터 10시간치 / 코어 더스트 10시간치를 얻습니다. 교환 가능 횟수 제한은 없습니다. 계산 기간 동안 실제로 교환한 횟수를 각각 입력하세요.</p>
+    <div class="grid">
+      <div><label>크레딧 교환 횟수 (1회당 30시간치)</label><input type="number" id="growthBoxCredit" value="0" min="0"></div>
+      <div><label>배틀 데이터 교환 횟수 (1회당 10시간치)</label><input type="number" id="growthBoxBattle" value="0" min="0"></div>
+      <div><label>코어 더스트 교환 횟수 (1회당 10시간치)</label><input type="number" id="growthBoxCore" value="0" min="0"></div>
+    </div>
+    <div class="fixed-note">전초기지 시간당 생산량 × 교환 횟수 × 1회당 시간치만큼 각각 합산됩니다.</div>
+  </div>
+
+  <div class="card">
+    <h2><span class="dot" style="background:var(--series-2)"></span>기간한정 캐쉬샵</h2>
+    <p class="section-desc">기간 한정 판매 패키지입니다. 실제로 구매한(구매할) 항목만 체크하세요. 기본값은 전부 미구매(off)입니다. &ldquo;그로우 세트&rdquo;는 크레딧·배틀데이터·코어더스트 전부에 같은 시간치가 지급됩니다.</p>
+    <div class="cash-total-banner">이번 달 기간한정 캐쉬샵 예상 결제 금액: <b id="cashLtdTotalWon">0원</b></div>
+    <table class="cash-table">
+      <thead>
+        <tr><th style="width:40px;">구매</th><th>패키지명</th><th>지급 재화</th><th>가격</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="cash-buy"><input type="checkbox" id="ltdStepup"></td>
+          <td class="cash-name">스탭업</td>
+          <td class="cash-desc">코어 더스트 20시간</td>
+          <td>30,000원</td>
+        </tr>
+        <tr class="cash-subhead"><td colspan="4">1주차 패키지</td></tr>
+        <tr>
+          <td class="cash-buy"><input type="checkbox" id="ltdW1Core60"></td>
+          <td class="cash-name">코어 더스트 컬렉션 세트</td>
+          <td class="cash-desc">코어 더스트 60시간</td>
+          <td>30,000원</td>
+        </tr>
+        <tr>
+          <td class="cash-buy"><input type="checkbox" id="ltdW1Grow24"></td>
+          <td class="cash-name">컴퍼니 기프트 세트</td>
+          <td class="cash-desc">그로우 세트 24시간</td>
+          <td>45,000원</td>
+        </tr>
+        <tr>
+          <td class="cash-buy"><input type="checkbox" id="ltdW1Credit200"></td>
+          <td class="cash-name">마스터 모듈 세트</td>
+          <td class="cash-desc">크레딧 200시간</td>
+          <td>45,000원</td>
+        </tr>
+        <tr>
+          <td class="cash-buy"><input type="checkbox" id="ltdW1Backup"></td>
+          <td class="cash-name">백업 마스터 세트</td>
+          <td class="cash-desc">
+            중앙정부 보급 물자1 (1개 = 코더 1시간 또는 배데 1시간 또는 크레딧 3시간, 총 120개를 원하는 대로 배분)<br>
+            <span class="cash-alloc">
+              코더 <input type="number" id="ltdW1BackupCore" value="0" min="0" max="120">개 ·
+              배데 <input type="number" id="ltdW1BackupBattle" value="0" min="0" max="120">개 ·
+              크레딧 <input type="number" id="ltdW1BackupCredit" value="0" min="0" max="120">개
+            </span>
+            <span class="field-note" id="ltdW1BackupSumNote"></span>
+          </td>
+          <td>85,000원</td>
+        </tr>
+        <tr>
+          <td class="cash-buy"><input type="checkbox" id="ltdW1Grow40a"></td>
+          <td class="cash-name">셀렉팅 그로우 I</td>
+          <td class="cash-desc">그로우 세트 40시간</td>
+          <td>85,000원</td>
+        </tr>
+        <tr>
+          <td class="cash-buy"><input type="checkbox" id="ltdW1Grow40b"></td>
+          <td class="cash-name">셀렉팅 그로우 II</td>
+          <td class="cash-desc">그로우 세트 40시간</td>
+          <td>149,000원</td>
+        </tr>
+        <tr class="cash-subhead"><td colspan="4">2주차 패키지</td></tr>
+        <tr>
+          <td class="cash-buy"><input type="checkbox" id="ltdW2Core180"></td>
+          <td class="cash-name">2주차 뽑기</td>
+          <td class="cash-desc">코어 더스트 180시간</td>
+          <td>30,000원</td>
+        </tr>
+        <tr>
+          <td class="cash-buy"><input type="checkbox" id="ltdW2Grow24"></td>
+          <td class="cash-name">컴퍼니 기프트 세트</td>
+          <td class="cash-desc">그로우 세트 24시간</td>
+          <td>45,000원</td>
+        </tr>
+        <tr>
+          <td class="cash-buy"><input type="checkbox" id="ltdW2Credit200"></td>
+          <td class="cash-name">마스터 모듈 세트</td>
+          <td class="cash-desc">크레딧 200시간</td>
+          <td>45,000원</td>
+        </tr>
+        <tr>
+          <td class="cash-buy"><input type="checkbox" id="ltdW2Backup"></td>
+          <td class="cash-name">백업 마스터 세트</td>
+          <td class="cash-desc">
+            중앙정부 보급 물자1 (1개 = 코더 1시간 또는 배데 1시간 또는 크레딧 3시간, 총 120개를 원하는 대로 배분)<br>
+            <span class="cash-alloc">
+              코더 <input type="number" id="ltdW2BackupCore" value="0" min="0" max="120">개 ·
+              배데 <input type="number" id="ltdW2BackupBattle" value="0" min="0" max="120">개 ·
+              크레딧 <input type="number" id="ltdW2BackupCredit" value="0" min="0" max="120">개
+            </span>
+            <span class="field-note" id="ltdW2BackupSumNote"></span>
+          </td>
+          <td>85,000원</td>
+        </tr>
+        <tr>
+          <td class="cash-buy"><input type="checkbox" id="ltdW2Grow40a"></td>
+          <td class="cash-name">셀렉팅 그로우 I</td>
+          <td class="cash-desc">그로우 세트 40시간</td>
+          <td>85,000원</td>
+        </tr>
+        <tr>
+          <td class="cash-buy"><input type="checkbox" id="ltdW2Grow40b"></td>
+          <td class="cash-name">셀렉팅 그로우 II</td>
+          <td class="cash-desc">그로우 세트 40시간</td>
+          <td>149,000원</td>
+        </tr>
+        <tr class="cash-subhead"><td colspan="4">커스텀 패키지1 (슬롯 3개, 슬롯별로 재화 하나씩 선택)</td></tr>
+        <tr>
+          <td class="cash-buy"><input type="checkbox" id="ltdCustomBuy"></td>
+          <td class="cash-name">커스텀 패키지1 구매</td>
+          <td class="cash-desc">구매 시 아래 슬롯 1~3에서 선택한 재화를 모두 획득</td>
+          <td>30,000원</td>
+        </tr>
+        <tr>
+          <td class="cash-name" colspan="2">슬롯1</td>
+          <td class="cash-buy" colspan="2">
+            <select id="ltdCustom1">
+              <option value="none" selected>해당 없음</option>
+              <option value="credit">크레딧 120시간</option>
+              <option value="core">코어 더스트 40시간</option>
+              <option value="battle">배틀 데이터 40시간</option>
+            </select>
+          </td>
+        </tr>
+        <tr>
+          <td class="cash-name" colspan="2">슬롯2</td>
+          <td class="cash-buy" colspan="2">
+            <select id="ltdCustom2">
+              <option value="none" selected>해당 없음</option>
+              <option value="credit">크레딧 120시간</option>
+              <option value="core">코어 더스트 40시간</option>
+              <option value="battle">배틀 데이터 40시간</option>
+            </select>
+          </td>
+        </tr>
+        <tr>
+          <td class="cash-name" colspan="2">슬롯3</td>
+          <td class="cash-buy" colspan="2">
+            <select id="ltdCustom3">
+              <option value="none" selected>해당 없음</option>
+              <option value="credit">크레딧 240시간</option>
+              <option value="core">코어 더스트 80시간</option>
+              <option value="battle">배틀 데이터 80시간</option>
+            </select>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <h2><span class="dot" style="background:var(--series-2)"></span>일반 캐쉬 상점</h2>
+    <p class="section-desc">상시 판매 패키지입니다. 일일 패키지는 하루 1회(계산 기간 중 최대 31회), 주간 패키지는 주 1회(최대 4회), 월간 패키지는 월 1회까지 구매할 수 있습니다. 실제로 구매한(구매할) 횟수를 입력하세요. 기본값은 전부 0(미구매)입니다.</p>
+    <div class="cash-total-banner">이번 달 일반 캐쉬 상점 예상 결제 금액: <b id="cashRegTotalWon">0원</b></div>
+
+    <h3 style="font-size:13.5px;margin:16px 0 4px;">일일 패키지 (구매 일수 0~31)</h3>
+    <table class="cash-table">
+      <thead>
+        <tr><th>패키지명</th><th>지급 재화</th><th>가격</th><th style="width:80px;">구매 일수</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="cash-name">코어 더스트 팩</td>
+          <td class="cash-desc">코어 더스트 24시간 + 300개</td>
+          <td>7,500원</td>
+          <td class="cash-buy"><input type="number" id="dailyCoreDust" value="0" min="0" max="31"></td>
+        </tr>
+        <tr>
+          <td class="cash-name">크레디트 팩</td>
+          <td class="cash-desc">크레딧 60시간 + 100,000</td>
+          <td>7,500원</td>
+          <td class="cash-buy"><input type="number" id="dailyCredit" value="0" min="0" max="31"></td>
+        </tr>
+        <tr>
+          <td class="cash-name">배틀 데이터 팩</td>
+          <td class="cash-desc">배틀 데이터 30시간</td>
+          <td>7,500원</td>
+          <td class="cash-buy"><input type="number" id="dailyBattle" value="0" min="0" max="31"></td>
+        </tr>
+        <tr>
+          <td class="cash-name">퍼펙트 부스트 팩</td>
+          <td class="cash-desc">그로우 세트 48시간</td>
+          <td>30,000원</td>
+          <td class="cash-buy"><input type="number" id="dailyPerfect" value="0" min="0" max="31"></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3 style="font-size:13.5px;margin:20px 0 4px;">주간 패키지 (구매 주수 0~4)</h3>
+    <table class="cash-table">
+      <thead>
+        <tr><th>패키지명</th><th>지급 재화</th><th>가격</th><th style="width:80px;">구매 주수</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="cash-name">니케 그로우 업 I</td>
+          <td class="cash-desc">그로우 세트 6시간</td>
+          <td>7,500원</td>
+          <td class="cash-buy"><input type="number" id="weeklyGrow1" value="0" min="0" max="4"></td>
+        </tr>
+        <tr>
+          <td class="cash-name">니케 그로우 업 II</td>
+          <td class="cash-desc">그로우 세트 12시간</td>
+          <td>15,000원</td>
+          <td class="cash-buy"><input type="number" id="weeklyGrow2" value="0" min="0" max="4"></td>
+        </tr>
+        <tr>
+          <td class="cash-name">크레디트+세트</td>
+          <td class="cash-desc">크레딧 150시간</td>
+          <td>15,000원</td>
+          <td class="cash-buy"><input type="number" id="weeklyCredit150" value="0" min="0" max="4"></td>
+        </tr>
+        <tr>
+          <td class="cash-name">코어 더스트 세트</td>
+          <td class="cash-desc">코어 더스트 90시간</td>
+          <td>23,000원</td>
+          <td class="cash-buy"><input type="number" id="weeklyCore90" value="0" min="0" max="4"></td>
+        </tr>
+        <tr>
+          <td class="cash-name">배틀 데이터 세트</td>
+          <td class="cash-desc">배틀 데이터 90시간</td>
+          <td>30,000원</td>
+          <td class="cash-buy"><input type="number" id="weeklyBattle90" value="0" min="0" max="4"></td>
+        </tr>
+        <tr>
+          <td class="cash-name">니케 그로우 업 IV</td>
+          <td class="cash-desc">그로우 세트 24시간 + 코더 72시간 + 베데 72시간</td>
+          <td>85,000원</td>
+          <td class="cash-buy"><input type="number" id="weeklyGrow4" value="0" min="0" max="4"></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3 style="font-size:13.5px;margin:20px 0 4px;">월간 패키지 (월 1회)</h3>
+    <table class="cash-table">
+      <thead>
+        <tr><th style="width:40px;">구매</th><th>패키지명</th><th>지급 재화</th><th>가격</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="cash-buy"><input type="checkbox" id="monthlyDouble"></td>
+          <td class="cash-name">니케 더블 업 패키지</td>
+          <td class="cash-desc">코어 더스트 120시간 + 크레딧 120시간</td>
+          <td>30,000원</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <h2>월간 재화 수급 내역</h2>
+    <table id="breakdownTable">
+      <thead>
+        <tr><th>출처</th><th>크레딧</th><th>배틀 데이터</th><th>코어 더스트</th></tr>
+      </thead>
+      <tbody id="breakdownBody"></tbody>
+      <tfoot>
+        <tr><td>합계</td><td id="totalCredit">-</td><td id="totalBattle">-</td><td id="totalCore">-</td></tr>
+      </tfoot>
+    </table>
+  </div>
+
+  <div class="card">
+    <h2>레벨업 가능 횟수 (계산 기간 기준)</h2>
+    <div class="stat-row" id="statRow"></div>
+    <div class="bars" id="bars"></div>
+    <p class="helper" id="bottleneckNote"></p>
+  </div>
+</div>
+
+<div class="tooltip" id="tooltip"></div>
+
+<script>
+(function(){
+  var OUTPOST_TABLE = [[3456.0,6437.98,20.24],[3935.98,9221.99,21.93],[4511.98,12353.99,23.39],[4991.99,15833.98,24.67],[5567.99,19575.0,25.83],[6048.0,22619.98,26.63],[6624.0,26969.99,27.62],[7200.0,31581.0,28.54],[7488.0,33930.0,28.99],[7871.99,37670.99,29.61],[8159.99,40280.99,30.02],[8543.98,42890.99,30.42],[8640.0,44195.99,30.62],[8928.0,46980.0,30.99],[9216.0,49763.98,31.36],[9407.98,51156.0,31.54],[9695.98,54027.0,31.89],[9887.99,55418.99,32.07],[10175.99,58376.98,32.42],[10463.99,61421.99,32.76],[10656.0,62987.99,32.92],[10751.99,64467.0,33.09],[11135.98,67599.0,33.41],[11232.0,69165.0,33.56],[11520.0,72383.99,33.88],[11711.98,74036.98,34.03],[11999.98,77342.99,34.33],[12384.0,80649.0,34.63],[12479.99,82301.99,34.78],[12863.98,85781.98,35.07],[13151.98,89175.0,35.36],[13439.98,92742.0,35.64],[13631.99,94482.0,35.77],[13919.99,98136.0,36.04],[14112.0,99876.0,36.18],[14400.0,103617.0,36.45],[14783.99,107271.0,36.71],[14879.98,109185.0,36.84],[15264.0,112926.0,37.1],[15359.99,114840.0,37.23],[15552.0,116754.0,37.36],[15840.0,120669.0,37.6],[16031.98,122670.0,37.73],[16416.0,126585.0,37.98],[16704.0,130587.0,38.21],[16992.0,134589.0,38.45],[17183.98,136677.0,38.57],[17568.0,140766.0,38.8],[17856.0,144942.0,39.04],[18047.98,147030.0,39.15],[18335.98,151206.0,39.38],[18720.0,155469.0,39.6],[18815.99,157644.0,39.71],[19199.98,161994.0,39.93],[19391.99,164169.0,40.04],[19679.99,168519.0,40.25],[19872.0,170781.0,40.36],[20160.0,175218.0,40.58],[20351.98,177480.0,40.68],[20543.99,179742.0,40.79],[20831.99,184266.0,40.99],[21024.0,186528.0,41.09],[21407.99,191139.0,41.3],[21503.98,193488.0,41.4],[21695.99,195837.0,41.5],[22079.98,200535.0,41.7],[22271.99,202884.0,41.8],[22367.98,205233.0,41.9],[22559.99,207582.0,41.99],[22943.98,212367.0,42.2],[23040.0,214803.0,42.29],[23231.98,217239.0,42.39],[23616.0,222111.0,42.58],[23904.0,226983.0,42.77],[24287.99,231942.0,42.95],[24671.98,236988.0,43.14],[24959.98,241947.0,43.33],[25344.0,247080.0,43.51],[25535.98,249603.0,43.6],[25823.98,254736.0,43.78],[26208.0,259869.0,43.96],[26496.0,265089.0,44.14],[26879.99,270309.0,44.31],[27263.98,275616.0,44.48],[27360.0,278226.0,44.57],[27936.0,286230.0,44.83],[28127.98,288927.0,44.92],[28415.98,294321.0,45.08],[28991.98,302499.0,45.34],[29376.0,308067.0,45.5],[29664.0,313548.0,45.67],[30047.99,319116.0,45.83],[30431.98,324771.0,46.0],[30911.99,333210.0,46.23],[31295.98,338952.0,46.4],[31680.0,344607.0,46.55],[31968.0,350436.0,46.71],[32159.98,353307.0,46.79],[32351.99,356178.0,46.87],[32544.0,359136.0,46.95],[32607.68,359845.05,47.08],[32662.11,359990.95,47.21],[32716.48,360137.02,47.33],[32770.8,360283.1,47.45],[32825.09,360429.17,47.58],[32879.32,360575.24,47.7],[32933.46,360721.4,47.82],[32987.61,360867.56,47.95],[33041.66,361013.72,48.06],[33095.69,361159.97,48.18],[33149.66,361306.22,48.3],[33203.58,361452.46,48.42],[33257.46,361598.8,48.54],[33311.29,361745.13,48.66],[33365.09,361891.46,48.77],[33418.8,362037.8,48.89],[33472.51,362184.22,49.01],[33526.14,362330.64,49.12],[33579.73,362477.06,49.23],[33633.3,362623.57,49.36],[33686.81,362770.08,49.47],[33740.27,362916.59,49.58],[33793.69,363063.18,49.69],[33847.06,363209.69,49.8],[33900.39,363356.28,49.91],[33953.67,363502.88,50.03],[34006.92,363649.56,50.14],[34060.15,363796.24,50.24],[34113.31,363942.92,50.36],[34166.42,364089.61,50.47],[34219.5,364236.38,50.57],[34272.55,364383.06,50.69],[34325.54,364529.91,50.79],[34378.5,364676.68,50.9],[34431.44,364823.45,51.01],[34484.31,364970.31,51.11],[34537.16,365117.16,51.22],[34589.98,365264.11,51.32],[34642.74,365410.96,51.43],[34695.48,365557.91,51.53],[34748.15,365704.85,51.63],[34800.83,365851.79,51.74],[34853.44,365998.82,51.84],[34906.0,366145.85,51.95],[34958.56,366292.88,52.05],[35011.07,366439.91,52.15],[35063.54,366586.94,52.25],[35115.98,366734.06,52.36],[35168.37,366881.18,52.45],[35220.73,367028.29,52.56],[35273.09,367175.5,52.65],[35325.36,367322.61,52.76],[35377.63,367469.82,52.85],[35429.88,367617.02,52.96],[35482.06,367764.23,53.05],[35534.22,367911.52,53.15],[35586.35,368058.72,53.25],[35638.44,368206.1,53.35],[35690.49,368353.39,53.44],[35742.53,368500.68,53.54],[35794.51,368648.06,53.64],[35846.5,368795.35,53.73],[35898.42,368942.73,53.83],[35950.32,369090.19,53.92],[36002.19,369237.57,54.02],[36054.03,369385.04,54.11],[36105.81,369532.41,54.21],[36157.59,369679.88,54.31],[36209.35,369827.43,54.4],[36261.04,369974.9,54.49],[36312.74,370122.45,54.58],[36364.38,370269.91,54.68],[36416.02,370417.46,54.77],[36467.6,370565.1,54.86],[36519.18,370712.66,54.96],[36570.7,370860.29,55.04],[36622.2,371007.85,55.14],[36673.69,371155.49,55.23],[36725.13,371303.21,55.32],[36776.53,371450.85,55.41],[36827.91,371598.49,55.5],[36879.29,371746.22,55.59],[36930.61,371893.94,55.68],[36981.94,372041.67,55.77],[37033.2,372189.39,55.86],[37084.44,372337.21,55.95],[37135.67,372485.02,56.04],[37186.85,372632.75,56.12],[37238.03,372780.56,56.21],[37289.17,372928.46,56.3],[37340.27,373076.27,56.38],[37391.36,373224.17,56.48],[37442.42,373371.98,56.57],[37493.45,373519.88,56.65],[37544.46,373667.78,56.73],[37595.43,373815.68,56.82],[37646.41,373963.67,56.91],[37697.33,374111.57,56.99],[37748.22,374259.56,57.08],[37799.11,374407.55,57.17],[37849.97,374555.53,57.25],[37900.77,374703.61,57.33],[37951.57,374851.59,57.42],[38002.35,374999.67,57.51],[38053.09,375147.74,57.59],[38103.84,375295.73,57.67],[38154.53,375443.89,57.76],[38205.22,375591.96,57.84],[38255.88,375740.04,57.92],[38306.51,375888.2,58.0],[38357.11,376036.36,58.09],[38407.68,376184.52,58.17],[38458.22,376332.68,58.26],[38508.77,376480.84,58.33],[38559.28,376629.0,58.42],[38609.77,376777.25,58.5],[38660.23,376925.5,58.58],[38710.66,377073.66,58.66],[38761.08,377222.0,58.74],[38811.48,377370.24,58.82],[38861.86,377518.49,58.91],[38912.2,377666.83,58.99],[38962.51,377815.07,59.06],[39012.83,377963.41,59.14],[39063.11,378111.74,59.22],[39113.37,378260.08,59.31],[39163.59,378408.41,59.39],[39213.79,378556.84,59.46],[39263.99,378705.17,59.54],[39314.16,378853.59,59.62],[39364.3,379002.02,59.7],[39414.44,379150.44,59.78],[39464.55,379298.86,59.86],[39514.61,379447.37,59.93],[39564.69,379595.79,60.01],[39614.72,379744.21,60.09],[39664.74,379892.72,60.17],[39714.74,380041.23,60.25],[39764.71,380189.74,60.32],[39814.68,380338.25,60.4],[39864.61,380486.84,60.47],[39914.52,380635.35,60.55],[39964.41,380783.95,60.63],[40014.29,380932.55,60.7],[40064.14,381081.05,60.78],[40113.96,381229.65,60.86],[40163.79,381378.33,60.93],[40213.58,381526.93,61.0],[40263.35,381675.53,61.08],[40313.09,381824.21,61.15],[40362.83,381972.89,61.23],[40412.53,382121.49,61.31],[40462.24,382270.17,61.38],[40511.89,382418.94,61.46],[40561.55,382567.62,61.53],[40611.2,382716.31,61.6],[40660.82,382865.08,61.67],[40710.41,383013.76,61.75],[40759.98,383162.53,61.82],[40809.54,383311.3,61.9],[40859.08,383460.07,61.97],[40908.59,383608.84,62.05],[40958.09,383757.61,62.12],[41007.57,383906.47,62.19],[41057.02,384055.32,62.27],[41106.47,384204.09,62.34],[41155.89,384352.95,62.41],[41205.31,384501.81,62.48],[41254.7,384650.66,62.55],[41304.07,384799.52,62.62],[41353.4,384948.47,62.69],[41402.74,385097.32,62.77],[41452.07,385246.27,62.84],[41501.35,385395.12,62.91],[41550.62,385544.07,62.98],[41599.9,385693.01,63.05],[41649.15,385841.96,63.12],[41698.37,385990.99,63.2],[41747.56,386139.93,63.27],[41796.75,386288.87,63.34],[41845.94,386437.91,63.41],[41895.1,386586.85,63.48],[41997.17,387547.85,63.62],[42075.76,388515.12,63.76],[42154.33,389481.77,63.9],[42232.87,390447.74,64.04],[42311.38,391413.0,64.18],[42389.86,392377.66,64.32],[42468.31,393341.53,64.46],[42546.73,394304.88,64.6],[42625.15,395267.45,64.74],[42703.52,396229.41,64.88],[42781.85,397190.67,65.02],[42860.19,398151.32,65.15],[42938.47,399111.28,65.29],[43016.75,400070.63,65.42],[43094.97,401029.28,65.56],[43173.19,401987.33,65.7],[43251.38,402944.68,65.84],[43329.54,403901.42,65.97],[43407.68,404857.55,66.11],[43485.78,405813.07,66.25],[43563.86,406767.89,66.38],[43641.94,407722.11,66.52],[43719.96,408675.71,66.65],[43797.97,409628.63,66.79],[43875.96,410581.01,66.92],[43953.9,411532.71,67.06],[44031.83,412483.79,67.19],[44109.73,413434.27,67.33],[44187.61,414384.13,67.46],[44265.48,415333.39,67.6],[44343.3,416282.12,67.73],[44421.12,417230.16,67.86],[44498.91,418177.59,68.0],[44576.64,419124.41,68.13],[44654.37,420070.63,68.26],[44732.1,421016.32,68.39],[44809.78,421961.4,68.53],[44887.42,422905.78,68.66],[44965.07,423849.73,68.79],[45042.68,424792.99,68.92],[45120.27,425735.63,69.05],[45197.83,426677.75,69.19],[45275.36,427619.36,69.32],[45352.86,428560.26,69.45],[45430.36,429500.64,69.58],[45507.83,430440.42,69.71],[45585.27,431379.67,69.84],[45662.69,432318.31,69.97],[45740.07,433256.43,70.1],[45817.46,434193.95,70.24],[45894.82,435130.85,70.37],[45972.14,436067.32,70.5],[46049.44,437003.09,70.63],[46126.71,437938.34,70.76],[46203.98,438873.07,70.88],[46281.2,439807.27,71.01],[46358.41,440740.87,71.14],[46435.59,441673.94,71.27],[46512.78,442606.5,71.4],[46589.9,443538.44,71.52],[46667.03,444469.86,71.65],[46744.13,445400.68,71.78],[46821.2,446331.05,71.91],[46898.27,447260.82,72.04],[46975.28,448190.16,72.17],[47052.29,449118.8,72.3],[47129.27,450047.0,72.42],[47206.25,450974.68,72.55],[47283.18,451901.84,72.67],[47360.1,452828.39,72.8],[47437.0,453754.5,72.92],[47513.89,454680.01,73.05],[47590.73,455605.08,73.18],[47667.57,456529.54,73.31],[47744.38,457453.57,73.43],[47821.16,458376.99,73.56],[47897.94,459299.97,73.68],[47974.69,460222.43,73.81],[48051.42,461144.37,73.93],[48128.11,462065.79,74.06],[48204.81,462986.68,74.18],[48281.47,463907.06,74.31],[48358.11,464826.99,74.44],[48434.72,465746.32,74.56],[48511.32,466665.22,74.68],[48587.9,467583.68,74.8],[48664.45,468501.53,74.93],[48741.0,469418.94,75.05],[48817.53,470335.83,75.18],[48894.02,471252.2,75.3],[48970.48,472168.14,75.43],[49046.95,473083.55,75.55],[49123.38,473998.45,75.67],[49199.79,474912.9,75.79],[49276.2,475826.84,75.92],[49352.57,476740.34,76.04],[49428.92,477653.32,76.16],[49505.24,478565.86,76.28],[49581.56,479477.88,76.4],[49657.85,480389.38,76.53],[49734.12,481300.44,76.65],[49810.38,482211.07,76.77],[49886.61,483121.18,76.89],[49962.82,484030.85,77.01],[50039.02,484940.0,77.13],[50115.2,485848.72,77.26],[50191.34,486756.91,77.38],[50267.49,487664.75,77.5],[50343.61,488572.08,77.62],[50419.7,489478.88,77.74],[50495.76,490385.24,77.87],[50571.82,491291.18,77.98],[50647.85,492196.58,78.1],[50723.88,493101.65,78.22],[50799.89,494006.18,78.34],[50875.86,494910.2,78.47],[50951.84,495813.87,78.58],[51027.75,496717.1,78.7],[51103.7,497619.78,78.82],[51179.59,498522.06,78.94],[51255.48,499423.89,79.06],[51331.33,500325.28,79.18],[51407.19,501226.23,79.29],[51483.02,502126.7,79.41],[51558.83,503026.76,79.54],[51634.63,503926.35,79.65],[51710.4,504825.52,79.77],[51786.14,505724.25,79.88],[51861.89,506622.53,80.01],[51937.6,507520.4,80.13],[52013.29,508417.79,80.24],[52088.98,509314.77,80.36],[52164.63,510211.33,80.48],[52240.29,511107.45,80.6],[52315.92,512003.13,80.71],[52391.52,512898.38,80.83],[52467.12,513793.19,80.94],[52542.69,514687.62,81.06],[52618.23,515581.57,81.18],[52693.78,516475.13,81.29],[52769.29,517368.24,81.41],[52844.8,518260.97,81.53],[52920.29,519153.25,81.64],[52995.74,520045.11,81.76],[53071.2,520936.56,81.88],[53146.63,521827.56,81.99],[53222.03,522718.17,82.11],[53297.42,523608.39,82.22],[53372.79,524498.16,82.34],[53448.16,525387.52,82.45],[53523.5,526276.49,82.57],[53598.82,527165.03,82.68],[53674.13,528053.16,82.8],[53749.41,528940.9,82.91],[53824.69,529828.23,83.02],[53899.95,530715.13,83.15],[53975.17,531601.64,83.26],[54050.4,532487.74,83.37],[54125.63,533373.44,83.49],[54200.79,534258.75,83.6],[54275.96,535143.65,83.71],[54351.13,536028.15,83.82],[54426.27,536912.26,83.94],[54501.38,537795.95,84.06],[54576.49,538679.28,84.17],[54651.57,539562.19,84.29],[54726.62,540444.71,84.4],[54801.68,541326.84,84.51],[54876.73,542208.58,84.62],[54951.72,543089.92,84.74],[55026.75,543970.88,84.85],[55101.72,544851.44,84.96],[55176.68,545731.63,85.07],[55251.65,546611.41,85.18],[55326.59,547490.83,85.29],[55401.49,548369.85,85.41],[55476.4,549248.48,85.52],[55551.28,550126.74,85.63],[55626.16,551004.62,85.75],[55701.01,551882.1,85.86],[55775.87,552759.22,85.97],[55850.69,553635.94,86.08],[55925.48,554512.3,86.19],[56000.28,555388.29,86.3],[56075.04,556263.9,86.42],[56149.8,557139.11,86.53],[56224.54,558013.98,86.63],[56299.28,558888.46,86.75],[56373.98,559762.55,86.86],[56448.66,560636.3,86.97],[56523.34,561509.66,87.08],[56598.02,562382.68,87.19],[56672.67,563255.3,87.3],[56747.29,564127.57,87.41],[56821.91,564999.46,87.52],[56896.5,565870.99,87.64],[56971.09,566742.16,87.74],[57045.66,567612.96,87.85],[57120.22,568483.4,87.96],[57194.76,569353.46,88.07],[57269.26,570223.2,88.18],[57343.77,571092.56,88.29],[57418.27,571961.56,88.4],[57492.75,572830.19,88.51],[57567.2,573698.46,88.62],[57641.64,574566.39,88.72],[57716.09,575433.98,88.84],[57790.48,576301.18,88.94],[57864.9,577168.04,89.05],[57939.26,578034.56,89.16],[58013.65,578900.71,89.27],[58087.99,579766.53,89.38],[58162.35,580631.98,89.49],[58236.65,581497.09,89.59],[58310.99,582361.84,89.71],[58385.26,583226.24,89.81],[58459.54,584090.31,89.92],[58533.81,584954.01,90.03],[58608.06,585817.37,90.13],[58682.3,586680.41,90.25],[58756.52,587543.1,90.35],[58830.71,588405.45,90.45],[58904.9,589267.44,90.57],[58979.09,590129.09,90.67],[59053.25,590990.39,90.78],[59127.38,591851.34,90.89],[59201.51,592712.03,90.99],[59275.64,593572.29,91.1],[59349.74,594432.29,91.2],[59423.85,595291.93,91.32],[59497.92,596151.23,91.42],[59571.96,597010.18,91.52],[59646.01,597868.79,91.63],[59720.05,598727.04,91.74],[59794.07,599585.03,91.85],[59868.06,600442.59,91.95],[59942.04,601299.89,92.05],[60016.03,602156.84,92.16],[60089.99,603013.53,92.27],[60163.92,603869.78,92.38],[60237.85,604725.78,92.48],[60311.78,605581.42,92.59],[60385.68,606436.72,92.69],[60459.55,607291.76,92.79],[60533.42,608146.44,92.9],[60607.3,609000.78,93.0],[60681.14,609854.78,93.11],[60754.98,610708.51,93.22],[60828.8,611561.8,93.32],[60902.61,612414.92,93.43],[60976.74,613276.66,102.23],[61046.64,614079.5,102.32],[61116.51,614882.07,102.42],[61186.41,615684.3,102.51],[61256.28,616486.26,102.61],[61326.12,617287.97,102.71],[61395.96,618089.33,102.81],[61465.77,618890.42,102.9],[61535.61,619691.17,103.0],[61605.39,620491.66,103.1],[61675.17,621291.8,103.19],[61744.95,622091.67,103.29],[61814.71,622891.29,103.39],[61884.46,623690.56,103.49],[61954.19,624489.57,103.58],[62023.91,625288.23,103.68],[62093.64,626086.63,103.77],[62163.33,626884.76,103.87],[62233.0,627682.64,103.97],[62302.69,628480.17,104.06],[62372.33,629277.44,104.16],[62442.0,630074.36,104.25],[62511.64,630871.1,104.35],[62581.25,631667.42,104.44],[62650.86,632463.55,104.54],[62720.44,633259.43,104.63],[62790.05,634054.96,104.73],[62859.6,634850.14,104.83],[62929.18,635645.14,104.92],[62998.7,636439.8,105.02],[63068.26,637234.2,105.11],[63137.78,638028.33,105.21],[63207.27,638822.21,105.3],[63276.77,639615.74,105.4],[63346.26,640409.0,105.5],[63415.73,641202.01,105.59],[63485.19,641994.75,105.69],[63554.66,642787.15,105.77],[63624.1,643579.37,105.87],[63693.5,644371.24,105.97],[63762.91,645162.86,106.06],[63832.32,645954.12,106.16],[63901.7,646745.21,106.25],[63971.08,647535.95,106.35],[64040.46,648326.52,106.44],[64109.81,649116.74,106.53],[64179.13,649906.7,106.63],[64248.48,650696.4,106.72],[64317.77,651485.75,106.82],[64387.09,652274.93,106.91],[64456.39,653063.76,107.0],[64525.65,653852.42,107.1],[64594.92,654640.72,107.19],[64664.18,655428.77,107.29],[64733.41,656216.55,107.38],[64802.65,657004.08,107.47],[64871.88,657791.34,107.57],[64941.09,658578.34,107.65],[65010.3,659365.0,107.75],[65079.48,660151.48,107.85],[65148.65,660937.7,107.94],[65217.8,661723.65,108.03],[65286.95,662509.26,108.12],[65356.1,663294.61,108.22],[65425.22,664079.79,108.31],[65494.34,664864.7,108.4],[65563.46,665649.27,108.5],[65632.55,666433.66,108.58],[65701.44,667217.79,108.75],[65770.56,668001.66,108.75],[65839.68,668785.53,108.75],[65908.8,669568.53,108.75],[65977.92,670351.53,108.75],[66047.04,671134.53,108.75],[66116.16,671916.66,109.62],[66185.28,672698.79,109.62],[66253.44,673480.92,109.62],[66322.56,674263.05,109.62],[66391.68,675044.31,109.62],[66460.8,675825.57,109.62],[66529.92,676606.83,109.62],[66599.04,677387.22,109.62],[66667.2,678167.61,109.62],[66736.32,678948.0,110.49],[66805.44,679727.52,110.49],[66874.56,680507.91,110.49],[66942.72,681287.43,110.49],[67011.84,682066.08,110.49],[67080.96,682845.6,110.49],[67150.08,683624.25,110.49],[67218.24,684402.03,110.49],[67287.36,685180.68,110.49],[67356.48,685958.46,110.49],[67424.64,686736.24,111.36],[67493.76,687514.02,111.36],[67562.88,688290.93,111.36],[67631.04,689067.84,111.36],[67700.16,689844.75,111.36],[67769.28,690620.79,111.36],[67837.44,691397.7,111.36],[67906.56,692173.74,111.36],[67974.72,692948.91,111.36],[68043.84,693724.95,111.36],[68112.0,694500.12,112.23],[68181.12,695275.29,112.23],[68249.28,696049.59,112.23],[68318.4,696823.89,112.23],[68387.52,697598.19,112.23],[68455.68,698372.49,112.23],[68523.84,699145.92,112.23],[68592.96,699920.22,112.23],[68661.12,700692.78,112.23],[68730.24,701466.21,113.1],[68798.4,702238.77,113.1],[68867.52,703011.33,113.1],[68935.68,703783.89,113.1],[69004.8,704556.45,113.1],[69072.96,705328.14,113.1],[69141.12,706099.83,113.1],[69210.24,706870.65,113.1],[69278.4,707642.34,113.1],[69346.56,708413.16,113.1],[69415.68,709183.98,113.97],[69483.84,709953.93,113.97],[69552.0,710724.75,113.97],[69621.12,711494.7,113.97],[69689.28,712264.65,113.97],[69757.44,713033.73,113.97],[69826.56,713802.81,113.97],[69894.72,714571.89,113.97],[69962.88,715340.97,113.97],[70031.04,716109.18,113.97],[70100.16,716878.26,114.84],[70168.32,717645.6,114.84],[70236.48,718413.81,114.84],[70304.64,719181.15,114.84],[70372.8,719949.36,114.84],[70441.92,720715.83,114.84],[70510.08,721483.17,114.84],[70578.24,722249.64,114.84],[70646.4,723016.11,114.84],[70714.56,723782.58,114.84],[70782.72,724549.05,115.71],[70851.84,725314.65,115.71],[70920.0,726080.25,115.71],[70988.16,726845.85,115.71],[71056.32,727610.58,115.71],[71124.48,728376.18,115.71],[71192.64,729140.91,115.71],[71260.8,729904.77,115.71],[71328.96,730669.5,115.71],[71397.12,731433.36,115.71],[71465.28,732197.22,116.58],[71533.44,732961.08,116.58],[71601.6,733724.07,116.58],[71669.76,734487.06,116.58],[71737.92,735250.05,116.58],[71806.08,736013.04,116.58],[71874.24,736775.16,116.58],[71942.4,737537.28,116.58],[72010.56,738299.4,116.58],[72078.72,739061.52,116.58],[72146.88,739822.77,117.45],[72215.04,740584.89,117.45],[72283.2,741345.27,117.45],[72350.4,742106.52,117.45],[72418.56,742866.9,117.45],[72486.72,743628.15,117.45],[72550,744380,117.58],[72620,745140,117.67],[72690,745900,117.76],[72750,746660,117.85],[72820,747420,117.93],[72890,748180,118.02],[72960,748940,118.11],[73030,749700,118.18],[73090,750460,118.27],[73160,751220,118.36],[73230,751970,118.45],[73300,752730,118.53]];
+
+  var themeBtn = document.getElementById('themeToggle');
+  var root = document.documentElement;
+  themeBtn.addEventListener('click', function(){
+    var cur = root.getAttribute('data-theme');
+    if (cur === 'dark') { root.setAttribute('data-theme','light'); themeBtn.textContent = '다크 모드'; }
+    else { root.setAttribute('data-theme','dark'); themeBtn.textContent = '라이트 모드'; }
+  });
+
+  function num(id){
+    var el = document.getElementById(id);
+    var raw = el.getAttribute('data-raw');
+    var v = (raw !== null && raw !== '') ? parseFloat(raw) : parseFloat(el.value);
+    return isNaN(v) ? 0 : v;
+  }
+  function fmtUnit(n){
+    var v = Number(n);
+    if (!isFinite(v)) return '-';
+    var sign = v < 0 ? '-' : '';
+    var abs = Math.abs(v);
+    if (abs >= 1000000) return sign + (abs/1000000).toLocaleString('ko-KR', {maximumFractionDigits:2}) + 'M';
+    if (abs >= 1000) return sign + (abs/1000).toLocaleString('ko-KR', {maximumFractionDigits:2}) + 'k';
+    return sign + abs.toLocaleString('ko-KR', {maximumFractionDigits:2});
+  }
+  function setDisplayField(id, value){
+    var el = document.getElementById(id);
+    el.setAttribute('data-raw', value);
+    el.value = fmtUnit(value);
+    el.title = fmt(value) + ' (정확한 값)';
+  }
+  function fmt(n){ return Math.round(n).toLocaleString('ko-KR'); }
+  function fmt1(n){ return n.toLocaleString('ko-KR', {maximumFractionDigits:2}); }
+
+  var levelInput = document.getElementById('outpostLevel');
+  var levelNote = document.getElementById('outpostLevelNote');
+  var OUTPOST_MAX_LEVEL = OUTPOST_TABLE.length;
+  levelInput.max = String(OUTPOST_MAX_LEVEL);
+  function applyOutpostLevel(){
+    var lvl = Math.round(num('outpostLevel'));
+    if (lvl < 1) lvl = 1;
+    var lookupLvl = lvl > OUTPOST_MAX_LEVEL ? OUTPOST_MAX_LEVEL : lvl;
+    var row = OUTPOST_TABLE[lookupLvl - 1];
+    if (row) {
+      setDisplayField('outpostCredit', row[0]);
+      setDisplayField('outpostBattle', row[1]);
+      document.getElementById('outpostCore').value = row[2];
+    }
+    levelNote.textContent = lvl > OUTPOST_MAX_LEVEL
+      ? ('입력한 레벨(' + lvl + ')은 보유한 표(1~' + OUTPOST_MAX_LEVEL + '레벨) 범위를 벗어나 ' + OUTPOST_MAX_LEVEL + '레벨 수치로 대체했습니다. 실제 값과 다를 수 있습니다.')
+      : '레벨 ' + lvl + ' 기준 표 값으로 자동 반영됨 (아래 칸은 자동 계산 전용, 직접 수정 불가)';
+  }
+  levelInput.addEventListener('input', function(){ applyOutpostLevel(); calc(); });
+
+  var LEVELUP_BRACKETS = [
+    { min: 201, max: 250, credit: 1694200,  battle: 20944600,  core: 10000 },
+    { min: 251, max: 300, credit: 3134000,  battle: 39883600,  core: 10000 },
+    { min: 301, max: 350, credit: 3809800,  battle: 50478800,  core: 10000 },
+    { min: 351, max: 400, credit: 4762250,  battle: 56536256,  core: 11000 },
+    { min: 401, max: 450, credit: 5952813,  battle: 61624519,  core: 12000 },
+    { min: 451, max: 500, credit: 7441016,  battle: 67170726,  core: 13000 },
+    { min: 501, max: 550, credit: 8185117,  battle: 72544384,  core: 14000 },
+    { min: 551, max: 600, credit: 9003629,  battle: 78347935,  core: 15000 },
+    { min: 601, max: 650, credit: 9453810,  battle: 83832290,  core: 16000 },
+    { min: 651, max: 700, credit: 9926501,  battle: 89700550,  core: 17000 },
+    { min: 701, max: 750, credit: 10422826, battle: 95082583,  core: 18000 },
+    { min: 751, max: 800, credit: 10943967, battle: 100787538, core: 19000 },
+    { min: 801, max: Infinity, credit: 11491166, battle: 105826915, core: 20000 }
+  ];
+  var levelupLevelInput = document.getElementById('levelupLevel');
+  var levelupLevelNote = document.getElementById('levelupLevelNote');
+  function applyLevelupBracket(){
+    var lvl = Math.round(num('levelupLevel'));
+    if (lvl < 1) lvl = 1;
+    var bracket = null;
+    for (var i = 0; i < LEVELUP_BRACKETS.length; i++){
+      if (lvl >= LEVELUP_BRACKETS[i].min && lvl <= LEVELUP_BRACKETS[i].max){ bracket = LEVELUP_BRACKETS[i]; break; }
+    }
+    var belowRange = false;
+    if (!bracket){ bracket = LEVELUP_BRACKETS[0]; belowRange = true; }
+    setDisplayField('needCredit', bracket.credit);
+    setDisplayField('needBattle', bracket.battle);
+    document.getElementById('needCore').value = bracket.core;
+    var rangeLabel = bracket.max === Infinity ? (bracket.min + '+') : (bracket.min + '~' + bracket.max);
+    levelupLevelNote.textContent = belowRange
+      ? ('입력한 레벨(' + lvl + ')은 보유한 표(201레벨~)보다 낮아 201~250 구간 값으로 대체했습니다. 실제 값과 다를 수 있습니다.')
+      : ('레벨 구간 ' + rangeLabel + ' 값으로 자동 반영됨 (아래 칸은 자동 계산 전용, 직접 수정 불가)' + (bracket.max === Infinity ? ' · 801레벨 이상은 전부 동일한 값 사용' : ''));
+  }
+  levelupLevelInput.addEventListener('input', function(){ applyLevelupBracket(); calc(); });
+
+  var tooltip = document.getElementById('tooltip');
+  function showTip(e, text){
+    tooltip.style.display = 'block';
+    tooltip.textContent = text;
+    tooltip.style.left = (e.clientX + 14) + 'px';
+    tooltip.style.top = (e.clientY + 14) + 'px';
+  }
+  function hideTip(){ tooltip.style.display = 'none'; }
+
+  // 게임 고정값 (수정 불가)
+  var DAYS_PER_MONTH = 30;
+  var TANKI_MINUTES = 120;
+  var DISPATCH_COUNT = 1;
+  var EVENT_SHOP_BATTLE_HR = 30;
+  var EVENT_SHOP_CORE_HR = 30;
+  var HARD_TICKET_HOURS = 4;
+  var SHOP_CREDIT_FLAT_100K = 100000;
+  var GROWTH_BOX_CREDIT_HR = 30;
+  var GROWTH_BOX_BATTLE_HR = 10;
+  var GROWTH_BOX_CORE_HR = 10;
+  var BACKUP_MASTER_COUNT = 120;
+  var BACKUP_MASTER_HOURS = { core: 1, battle: 1, credit: 3 };
+  var CUSTOM_SLOT_HOURS = {
+    '1': { credit: 120, core: 40, battle: 40 },
+    '2': { credit: 120, core: 40, battle: 40 },
+    '3': { credit: 240, core: 80, battle: 80 }
+  };
+  var DAILY_CORE_PACK_FLAT = 300;
+  var DAILY_CREDIT_PACK_FLAT = 100000;
+  var WEEK_TEMPLATES = {
+    none:   [0,0,0,0,0,0,0],
+    normal: [0,0,6,10,10,10,10],
+    hard:   [20,20,20,20,20,20,20]
+  };
+
+  function calc(){
+    var days = DAYS_PER_MONTH;
+    var oc = num('outpostCredit'), ob = num('outpostBattle'), od = num('outpostCore');
+
+    var tankiHours = num('tankiCount') * (TANKI_MINUTES/60);
+    var dispatchCoreHours = num('dispatchCore');
+    var dispatchCreditHours = num('dispatchCredit');
+
+    var weeks = days/7;
+
+    var farmScheduleHours = 0;
+    [1,2,3,4].forEach(function(w){
+      var sel = document.querySelector('.month-week-type[data-week="'+w+'"]');
+      var type = sel ? sel.value : 'none';
+      var pattern = WEEK_TEMPLATES[type] || WEEK_TEMPLATES.none;
+      var weekSum = pattern.reduce(function(s,v){ return s+v; }, 0);
+      var patternEl = document.getElementById('weekPattern'+w);
+      if (patternEl) patternEl.textContent = pattern.join(', ');
+      var totalEl = document.getElementById('weekTotal'+w);
+      if (totalEl) totalEl.textContent = fmt1(weekSum) + '시간';
+      farmScheduleHours += weekSum;
+    });
+    var farmTotalEl = document.getElementById('farmScheduleTotal');
+    if (farmTotalEl) farmTotalEl.textContent = fmt1(farmScheduleHours) + '시간';
+
+    var hardTicketCreditHours = num('hardTicketCreditCount') * HARD_TICKET_HOURS;
+    var hardTicketBattleHours = num('hardTicketBattleCount') * HARD_TICKET_HOURS;
+    var hardTicketCoreHours = num('hardTicketCoreCount') * HARD_TICKET_HOURS;
+
+    var shopCreditHours = num('shopCreditCase1')*1 + num('shopCreditCase2')*2;
+    var shopBattleHours = num('shopBattleCase1')*1 + num('shopBattleCase2')*2;
+    var shopCoreHours = num('shopCoreCase1')*1 + num('shopCoreCase2')*2;
+    var shopCreditFlat = num('shopCreditFlat100k') * SHOP_CREDIT_FLAT_100K;
+    var shopCaseNoteEl = document.getElementById('shopCaseNote');
+    if (shopCaseNoteEl) {
+      shopCaseNoteEl.textContent = '주당: 크레딧 ' + fmt1(shopCreditHours) + '시간치 + 크레딧 ' + fmt(shopCreditFlat) + ' · 배틀 데이터 ' + fmt1(shopBattleHours) + '시간치 · 코어 더스트 ' + fmt1(shopCoreHours) + '시간치 (계산 기간 ' + fmt1(weeks) + '주 반영)';
+    }
+
+
+    var growthBoxCreditCount = num('growthBoxCredit');
+    var growthBoxBattleCount = num('growthBoxBattle');
+    var growthBoxCoreCount = num('growthBoxCore');
+
+    function isChecked(id){ var el = document.getElementById(id); return !!(el && el.checked); }
+    function selVal(id, dflt){ var el = document.getElementById(id); return el ? el.value : dflt; }
+
+    // ---- 기간한정 캐쉬샵 ----
+    var ltdCredit = 0, ltdBattle = 0, ltdCore = 0, ltdWon = 0;
+    function addGrow(hours){ ltdCredit += oc*hours; ltdBattle += ob*hours; ltdCore += od*hours; }
+    function addBackup(checkboxId, coreId, battleId, creditId, sumNoteId){
+      var coreCount = num(coreId), battleCount = num(battleId), creditCount = num(creditId);
+      var sum = coreCount + battleCount + creditCount;
+      var sumNoteEl = document.getElementById(sumNoteId);
+      if (sumNoteEl) {
+        sumNoteEl.textContent = '배분 합계: ' + fmt1(sum) + ' / ' + BACKUP_MASTER_COUNT + '개' + (sum > BACKUP_MASTER_COUNT ? ' — 120개를 초과했습니다!' : '');
+        sumNoteEl.style.color = sum > BACKUP_MASTER_COUNT ? 'var(--series-2)' : '';
+      }
+      if (!isChecked(checkboxId)) return;
+      ltdCore += od*coreCount*BACKUP_MASTER_HOURS.core;
+      ltdBattle += ob*battleCount*BACKUP_MASTER_HOURS.battle;
+      ltdCredit += oc*creditCount*BACKUP_MASTER_HOURS.credit;
+      ltdWon += 85000;
+    }
+
+    if (isChecked('ltdStepup')) { ltdCore += od*20; ltdWon += 30000; }
+    if (isChecked('ltdW1Core60')) { ltdCore += od*60; ltdWon += 30000; }
+    if (isChecked('ltdW1Grow24')) { addGrow(24); ltdWon += 45000; }
+    if (isChecked('ltdW1Credit200')) { ltdCredit += oc*200; ltdWon += 45000; }
+    addBackup('ltdW1Backup', 'ltdW1BackupCore', 'ltdW1BackupBattle', 'ltdW1BackupCredit', 'ltdW1BackupSumNote');
+    if (isChecked('ltdW1Grow40a')) { addGrow(40); ltdWon += 85000; }
+    if (isChecked('ltdW1Grow40b')) { addGrow(40); ltdWon += 149000; }
+
+    if (isChecked('ltdW2Core180')) { ltdCore += od*180; ltdWon += 30000; }
+    if (isChecked('ltdW2Grow24')) { addGrow(24); ltdWon += 45000; }
+    if (isChecked('ltdW2Credit200')) { ltdCredit += oc*200; ltdWon += 45000; }
+    addBackup('ltdW2Backup', 'ltdW2BackupCore', 'ltdW2BackupBattle', 'ltdW2BackupCredit', 'ltdW2BackupSumNote');
+    if (isChecked('ltdW2Grow40a')) { addGrow(40); ltdWon += 85000; }
+    if (isChecked('ltdW2Grow40b')) { addGrow(40); ltdWon += 149000; }
+
+    if (isChecked('ltdCustomBuy')) {
+      ltdWon += 30000;
+      ['1','2','3'].forEach(function(slot){
+        var val = selVal('ltdCustom'+slot, 'none');
+        if (val === 'none') return;
+        var hrs = (CUSTOM_SLOT_HOURS[slot] || {})[val] || 0;
+        if (val === 'credit') ltdCredit += oc*hrs;
+        else if (val === 'core') ltdCore += od*hrs;
+        else if (val === 'battle') ltdBattle += ob*hrs;
+      });
+    }
+
+    var cashLtdTotalWonEl = document.getElementById('cashLtdTotalWon');
+    if (cashLtdTotalWonEl) cashLtdTotalWonEl.textContent = fmt(ltdWon) + '원';
+
+    // ---- 일반 캐쉬 상점 ----
+    var regCredit = 0, regBattle = 0, regCore = 0, regWon = 0;
+
+    var dCoreDust = num('dailyCoreDust');
+    regCore += dCoreDust*(od*24 + DAILY_CORE_PACK_FLAT);
+    regWon += dCoreDust*7500;
+
+    var dCredit = num('dailyCredit');
+    regCredit += dCredit*(oc*60 + DAILY_CREDIT_PACK_FLAT);
+    regWon += dCredit*7500;
+
+    var dBattle = num('dailyBattle');
+    regBattle += dBattle*ob*30;
+    regWon += dBattle*7500;
+
+    var dPerfect = num('dailyPerfect');
+    regCredit += dPerfect*oc*48; regBattle += dPerfect*ob*48; regCore += dPerfect*od*48;
+    regWon += dPerfect*30000;
+
+    var wGrow1 = num('weeklyGrow1');
+    regCredit += wGrow1*oc*6; regBattle += wGrow1*ob*6; regCore += wGrow1*od*6;
+    regWon += wGrow1*7500;
+
+    var wGrow2 = num('weeklyGrow2');
+    regCredit += wGrow2*oc*12; regBattle += wGrow2*ob*12; regCore += wGrow2*od*12;
+    regWon += wGrow2*15000;
+
+    var wCredit150 = num('weeklyCredit150');
+    regCredit += wCredit150*oc*150;
+    regWon += wCredit150*15000;
+
+    var wCore90 = num('weeklyCore90');
+    regCore += wCore90*od*90;
+    regWon += wCore90*23000;
+
+    var wBattle90 = num('weeklyBattle90');
+    regBattle += wBattle90*ob*90;
+    regWon += wBattle90*30000;
+
+    var wGrow4 = num('weeklyGrow4');
+    regCredit += wGrow4*oc*24; regBattle += wGrow4*ob*96; regCore += wGrow4*od*96;
+    regWon += wGrow4*85000;
+
+    var mDouble = isChecked('monthlyDouble') ? 1 : 0;
+    regCore += mDouble*od*120; regCredit += mDouble*oc*120;
+    regWon += mDouble*30000;
+
+    var cashRegTotalWonEl = document.getElementById('cashRegTotalWon');
+    if (cashRegTotalWonEl) cashRegTotalWonEl.textContent = fmt(regWon) + '원';
+
+    // ---- 인벤토리 (이미 보유 중인 교환형 아이템) ----
+    var invSupply1CoreCount = num('invSupply1Core');
+    var invSupply1BattleCount = num('invSupply1Battle');
+    var invSupply1CreditCount = num('invSupply1Credit');
+    var invCredit = oc*invSupply1CreditCount*BACKUP_MASTER_HOURS.credit;
+    var invBattle = ob*invSupply1BattleCount*BACKUP_MASTER_HOURS.battle;
+    var invCore = od*invSupply1CoreCount*BACKUP_MASTER_HOURS.core;
+
+    var rows = [
+      {
+        name: '전초기지 24시간 자동생산',
+        credit: oc*24*days, battle: ob*24*days, core: od*24*days
+      },
+      {
+        name: '단기섬멸 (일 ' + num('tankiCount') + '회 × ' + TANKI_MINUTES + '분)',
+        credit: oc*tankiHours*days, battle: ob*tankiHours*days, core: od*tankiHours*days
+      },
+      {
+        name: '고철상점 (주간)',
+        credit: oc*shopCreditHours*weeks + shopCreditFlat*weeks, battle: ob*shopBattleHours*weeks, core: od*shopCoreHours*weeks
+      },
+      {
+        name: '파견 (일 ' + DISPATCH_COUNT + '회)',
+        credit: oc*dispatchCreditHours*DISPATCH_COUNT*days, battle: 0, core: od*dispatchCoreHours*DISPATCH_COUNT*days
+      },
+      {
+        name: '이벤트 상점',
+        credit: 0, battle: ob*EVENT_SHOP_BATTLE_HR, core: od*EVENT_SHOP_CORE_HR
+      },
+      {
+        name: '이벤트 하드 11스테이지 파밍',
+        credit: 0, battle: 0, core: od*farmScheduleHours
+      },
+      {
+        name: '하드 스테이지 오픈 티켓 추가 획득',
+        credit: oc*hardTicketCreditHours, battle: ob*hardTicketBattleHours, core: od*hardTicketCoreHours
+      },
+      {
+        name: '인벤토리 (중앙정부 보급 물자 I)',
+        credit: invCredit, battle: invBattle, core: invCore
+      },
+      {
+        name: '30일 성장 보급상자',
+        credit: oc*growthBoxCreditCount*GROWTH_BOX_CREDIT_HR, battle: ob*growthBoxBattleCount*GROWTH_BOX_BATTLE_HR, core: od*growthBoxCoreCount*GROWTH_BOX_CORE_HR
+      },
+      {
+        name: '기간한정 캐쉬샵 (선택 항목 합계, ' + fmt(ltdWon) + '원)',
+        credit: ltdCredit, battle: ltdBattle, core: ltdCore
+      },
+      {
+        name: '일반 캐쉬 상점 (일일·주간·월간 합계, ' + fmt(regWon) + '원)',
+        credit: regCredit, battle: regBattle, core: regCore
+      }
+    ];
+
+    var totalCredit = rows.reduce(function(s,r){return s+r.credit;},0);
+    var totalBattle = rows.reduce(function(s,r){return s+r.battle;},0);
+    var totalCore = rows.reduce(function(s,r){return s+r.core;},0);
+
+    var needCredit = Math.max(num('needCredit'), 1e-9);
+    var needBattle = Math.max(num('needBattle'), 1e-9);
+    var needCore = Math.max(num('needCore'), 1e-9);
+
+    var tbody = document.getElementById('breakdownBody');
+    tbody.innerHTML = '';
+    rows.forEach(function(r){
+      var tr = document.createElement('tr');
+      tr.innerHTML = '<td>'+r.name+'</td>'+
+        '<td title="'+fmt(r.credit)+'">'+fmtUnit(r.credit)+'</td>'+
+        '<td title="'+fmt(r.battle)+'">'+fmtUnit(r.battle)+'</td>'+
+        '<td title="'+fmt(r.core)+'">'+fmtUnit(r.core)+'</td>';
+      tbody.appendChild(tr);
+    });
+    var totalCreditEl = document.getElementById('totalCredit');
+    var totalBattleEl = document.getElementById('totalBattle');
+    var totalCoreEl = document.getElementById('totalCore');
+    totalCreditEl.textContent = fmtUnit(totalCredit); totalCreditEl.title = fmt(totalCredit);
+    totalBattleEl.textContent = fmtUnit(totalBattle); totalBattleEl.title = fmt(totalBattle);
+    totalCoreEl.textContent = fmtUnit(totalCore); totalCoreEl.title = fmt(totalCore);
+
+    var levelsByCredit = totalCredit/needCredit;
+    var levelsByBattle = totalBattle/needBattle;
+    var levelsByCore = totalCore/needCore;
+
+    var items = [
+      {label:'크레딧 기준', value: levelsByCredit, color:'var(--series-1)'},
+      {label:'배틀데이터 기준', value: levelsByBattle, color:'var(--series-2)'},
+      {label:'코어더스트 기준', value: levelsByCore, color:'var(--series-3)'}
+    ];
+    var minVal = Math.min(levelsByCredit, levelsByBattle, levelsByCore);
+    var maxVal = Math.max(levelsByCredit, levelsByBattle, levelsByCore, 0.0001);
+
+    var statRow = document.getElementById('statRow');
+    statRow.innerHTML = '';
+    items.forEach(function(it){
+      var isBottleneck = Math.abs(it.value - minVal) < 1e-6;
+      var div = document.createElement('div');
+      div.className = 'stat-tile' + (isBottleneck ? ' bottleneck' : '');
+      div.innerHTML = '<div class="label">'+it.label+(isBottleneck ? ' · 병목' : '')+'</div><div class="value">'+fmt1(it.value)+' <small>레벨</small></div>';
+      statRow.appendChild(div);
+    });
+
+    var bars = document.getElementById('bars');
+    bars.innerHTML = '';
+    items.forEach(function(it){
+      var pct = Math.max((it.value/maxVal)*100, 14);
+      var row = document.createElement('div');
+      row.className = 'bar-row';
+      row.innerHTML =
+        '<div class="bar-label"><span class="dot" style="background:'+it.color+'"></span>'+it.label+'</div>'+
+        '<div class="bar-track"><div class="bar-fill" style="width:'+pct+'%;background:'+it.color+'"><span class="bar-value">'+fmt1(it.value)+'</span></div></div>';
+      bars.appendChild(row);
+      var fillEl = row.querySelector('.bar-fill');
+      fillEl.addEventListener('mousemove', function(e){ showTip(e, it.label + ': 약 ' + fmt1(it.value) + '레벨'); });
+      fillEl.addEventListener('mouseleave', hideTip);
+    });
+
+    var noteEl = document.getElementById('bottleneckNote');
+    var bottleneckItem = items.reduce(function(a,b){ return a.value < b.value ? a : b; });
+    noteEl.textContent = '가장 적게 모이는 재화(' + bottleneckItem.label.replace(' 기준','') + ')가 실제 레벨업 가능 횟수를 결정합니다. 현재 설정 기준 계산 기간 동안 약 ' + fmt1(bottleneckItem.value) + '회 레벨업이 가능합니다.';
+  }
+
+  function clampNonNegative(el){
+    if (el.value === '' || el.value === '-') return;
+    var v = parseFloat(el.value);
+    if (!isNaN(v) && v < 0) el.value = 0;
+  }
+  document.querySelectorAll('input[type=number]').forEach(function(el){
+    el.setAttribute('min', el.getAttribute('min') || '0');
+    el.addEventListener('input', function(){ clampNonNegative(el); calc(); });
+  });
+  document.querySelectorAll('.month-week-type').forEach(function(el){
+    el.addEventListener('change', calc);
+  });
+  document.querySelectorAll('.cash-table input[type=checkbox]').forEach(function(el){
+    el.addEventListener('change', calc);
+  });
+  document.querySelectorAll('.cash-table select').forEach(function(el){
+    el.addEventListener('change', calc);
+  });
+
+  // 고철상점 케이스 개수 · 캐쉬 상점 구매 횟수는 상한이 있어 입력값을 해당 범위로 고정합니다.
+  ['shopCreditCase1','shopCreditCase2','shopBattleCase1','shopBattleCase2','shopCoreCase1','shopCoreCase2','shopCreditFlat100k',
+   'dailyCoreDust','dailyCredit','dailyBattle','dailyPerfect','weeklyGrow1','weeklyGrow2','weeklyCredit150','weeklyCore90','weeklyBattle90','weeklyGrow4',
+   'ltdW1BackupCore','ltdW1BackupBattle','ltdW1BackupCredit','ltdW2BackupCore','ltdW2BackupBattle','ltdW2BackupCredit','tankiCount'].forEach(function(id){
+    var el = document.getElementById(id);
+    if (!el) return;
+    var max = parseFloat(el.getAttribute('max'));
+    el.addEventListener('input', function(){
+      if (el.value === '' || el.value === '-') return;
+      var v = parseFloat(el.value);
+      if (!isNaN(v) && !isNaN(max) && v > max) el.value = max;
+    });
+  });
+  applyOutpostLevel();
+  applyLevelupBracket();
+  calc();
+})();
+</script>
+</body>
+</html>
