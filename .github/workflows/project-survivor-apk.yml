@@ -68,7 +68,8 @@ jobs:
           import os, re
           from pathlib import Path
           p = Path.home()/'.config/godot/editor_settings-4.tres'
-          t = p.read_text()
+          p.parent.mkdir(parents=True, exist_ok=True)
+          t = p.read_text() if p.exists() else '[gd_resource type="EditorSettings" format=3]\n\n[resource]\n'
           sdk = os.environ.get('ANDROID_HOME') or os.environ.get('ANDROID_SDK_ROOT')
           java = os.environ['JAVA_HOME']
           assert sdk and (Path(sdk)/'platform-tools/adb').exists()
