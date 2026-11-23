@@ -20,6 +20,8 @@ jobs:
           mkdir -p /tmp/project-survivor
           tar -xzf project-survivor-source.tgz -C /tmp/project-survivor
           test -s /tmp/project-survivor/project.godot
+          # Compatibility fix for type inference in Godot 4.7.2.
+          sed -i 's/var checker := (abs(ix + iy) % 2) == 0/var checker: bool = (abs(ix + iy) % 2) == 0/' /tmp/project-survivor/scripts/battle.gd
 
       - uses: actions/setup-java@v4
         with:
