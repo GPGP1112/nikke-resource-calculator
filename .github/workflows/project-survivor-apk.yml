@@ -26,12 +26,11 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - uses: android-actions/setup-android@v3
-
-      - name: Install Android SDK
+      - name: Check runner Android SDK
         run: |
-          yes | sdkmanager --licenses > /dev/null || true
-          sdkmanager 'platform-tools' 'platforms;android-35' 'build-tools;35.0.1'
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          test -x "$ANDROID_HOME/platform-tools/adb"
+          sdkmanager --list_installed | head -35
 
       - name: Install Godot and Android templates
         run: |
