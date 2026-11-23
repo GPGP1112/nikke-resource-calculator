@@ -1,0 +1,95 @@
+name: Project Survivor Android APK
+
+on:
+  push:
+    branches: [project-survivor-apk-build]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Extract isolated game source
+        run: |
+          mkdir -p /tmp/project-survivor
+          tar -xzf project-survivor-source.tgz -C /tmp/project-survivor
+          test -s /tmp/project-survivor/project.godot
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK
+        run: |
+          yes | sdkmanager --licenses > /dev/null || true
+          sdkmanager 'platform-tools' 'platforms;android-35' 'build-tools;35.0.1'
+
+      - name: Install Godot and Android templates
+        run: |
+          set -euo pipefail
+          URL='https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable'
+          curl -fL --retry 3 "$URL/Godot_v4.7.2-stable_linux.x86_64.zip" -o /tmp/godot.zip
+          curl -fL --retry 3 "$URL/Godot_v4.7.2-stable_export_templates.tpz" -o /tmp/godot.tpz
+          mkdir -p /tmp/godot-bin "$HOME/.local/share/godot/export_templates/4.7.2.stable"
+          unzip -q /tmp/godot.zip -d /tmp/godot-bin
+          unzip -jo /tmp/godot.tpz 'templates/android_debug.apk' 'templates/android_release.apk' -d "$HOME/.local/share/godot/export_templates/4.7.2.stable"
+          chmod +x /tmp/godot-bin/Godot_v4.7.2-stable_linux.x86_64
+          /tmp/godot-bin/Godot_v4.7.2-stable_linux.x86_64 --headless --version
+
+      - name: Make temporary debug keystore
+        run: |
+          keytool -genkeypair -keystore "$RUNNER_TEMP/debug.keystore" -alias androiddebugkey \
+            -storepass android -keypass android -keyalg RSA -keysize 2048 \
+            -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
+          echo "GODOT_ANDROID_KEYSTORE_DEBUG_PATH=$RUNNER_TEMP/debug.keystore" >> "$GITHUB_ENV"
+          echo "GODOT_ANDROID_KEYSTORE_DEBUG_USER=androiddebugkey" >> "$GITHUB_ENV"
+          echo "GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD=android" >> "$GITHUB_ENV"
+
+      - name: Import and validate game scripts
+        working-directory: /tmp/project-survivor
+        run: |
+          set -euo pipefail
+          /tmp/godot-bin/Godot_v4.7.2-stable_linux.x86_64 --headless --editor --path . --import --quit 2>&1 | tee /tmp/godot-import.log
+          if grep -E 'SCRIPT ERROR|Parse Error|ERROR:.*(Parse|Script)' /tmp/godot-import.log; then exit 1; fi
+
+      - name: Configure Android SDK path
+        run: |
+          python3 - <<'PY'
+          import os, re
+          from pathlib import Path
+          p = Path.home()/'.config/godot/editor_settings-4.tres'
+          t = p.read_text()
+          sdk = os.environ.get('ANDROID_HOME') or os.environ.get('ANDROID_SDK_ROOT')
+          java = os.environ['JAVA_HOME']
+          assert sdk and (Path(sdk)/'platform-tools/adb').exists()
+          assert (Path(java)/'bin/jarsigner').exists()
+          for key,val in [('export/android/android_sdk_path',sdk),('export/android/java_sdk_path',java)]:
+              line = key + ' = "' + val.replace('\\','/') + '"'
+              t,n = re.subn(r'^'+re.escape(key)+r'\s*=.*$',lambda m:line,t,flags=re.M)
+              if not n: t=t.replace('[resource]\n','[resource]\n'+line+'\n',1)
+          p.write_text(t)
+          PY
+
+      - name: Export APK
+        working-directory: /tmp/project-survivor
+        run: |
+          set -euo pipefail
+          mkdir -p "$GITHUB_WORKSPACE/build"
+          /tmp/godot-bin/Godot_v4.7.2-stable_linux.x86_64 --headless --path . --export-debug Android "$GITHUB_WORKSPACE/build/ProjectSurvivor_v0.1.apk"
+          test -s "$GITHUB_WORKSPACE/build/ProjectSurvivor_v0.1.apk"
+          unzip -t "$GITHUB_WORKSPACE/build/ProjectSurvivor_v0.1.apk" | tail -1
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ProjectSurvivor_v0.1_APK
+          path: build/ProjectSurvivor_v0.1.apk
+          if-no-files-found: error
