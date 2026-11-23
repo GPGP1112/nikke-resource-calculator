@@ -22,6 +22,7 @@ jobs:
           test -s /tmp/project-survivor/project.godot
           # Compatibility fix for type inference in Godot 4.7.2.
           sed -i 's/var checker := (abs(ix + iy) % 2) == 0/var checker: bool = (abs(ix + iy) % 2) == 0/' /tmp/project-survivor/scripts/battle.gd
+          sed -i '/^\\[rendering\\]$/a textures/vram_compression/import_etc2_astc=true' /tmp/project-survivor/project.godot
 
       - uses: actions/setup-java@v4
         with:
